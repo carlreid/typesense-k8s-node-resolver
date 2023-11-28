@@ -1,28 +1,45 @@
+# Fork of a fork 🍴
+
+This repo has:
+
+- An image built with a newer version of `golang` (1.21)-
+- Published on GitHub Container Registry (`ghcr.io/carlreid/typesense-k8s-node-resolver:latest`)
+- A `verbose` argument for extra logging (*because it was driving me insane not knowing what endpoints and such were being found*)
+- When looking for an `endpoint`, this version searches for a `peerPort` on the endpoint, and not an `apiPort`. We want to use this for High Availability, so the `peerPort` is probably most important
+
+Original README below...
+
+---
+
 # Typesense Kubernetes Node Resolver
+
 *A sidecar container for Typesense that helps operate HA Typesense clusters in Kubernetes.*
 
 ### Problem
-When restarting/upgrading Typesense nodes in a high availability cluster running in Kubernetes, DNS entries of the stateful set do not get resolved again with the new IP, causing the pod to be unable to rejoin the cluster. 
+
+When restarting/upgrading Typesense nodes in a high availability cluster running in Kubernetes, DNS entries of the stateful set do not get resolved again with the new IP, causing the pod to be unable to rejoin the cluster.
 
 ### Solution
-Instead of storing the `nodeslist` values in a configmap (as a file through a volume), the `nodeslist` volume is configured with `emptyDir` and the sidecar container dynamically updates the values of the nodelist. 
 
-To do this it watches endpoints in the configured namespace for changes and sets IPs as node values rather than using DNS. 
+Instead of storing the `nodeslist` values in a configmap (as a file through a volume), the `nodeslist` volume is configured with `emptyDir` and the sidecar container dynamically updates the values of the nodelist.
+
+To do this it watches endpoints in the configured namespace for changes and sets IPs as node values rather than using DNS.
 
 ```
 typesense-0.ts.typesense.svc.cluster.local:8107:8108
 ```
+
 **format**: statefulSetName-0.serviceName.nameSpace...
 
- _usually preferred_
+ *usually preferred*
 
 VS.
 
 ```
 10.244.1.215:8107:8108
-``` 
-_created by the sidecar, solves the DNS resolution issue_
+```
 
+_created by the sidecar, solves the DNS resolution issue*
 
 ## Context
 
@@ -145,15 +162,14 @@ subjects:
 
 ```
 
-* `-namespace=NS` // _Namespace in which Typesense is installed (default: typesense)_
-* `-service=SVC` // _Service for which to retrieve endpoints (default: ts)_
-* `-nodes-file=PATH` // _The location to write the nodes list to (default: /usr/share/typesense/nodes)
-* `-peer-port=PORT` // _Port on which Typesense peering service listens (default: 8107)_
-* `-api-port=PORT` // _Port on which Typesense API service listens (default: 8108)_
+- `-namespace=NS` // *Namespace in which Typesense is installed (default: typesense)*
+- `-service=SVC` // *Service for which to retrieve endpoints (default: ts)*
+- `-nodes-file=PATH` // _The location to write the nodes list to (default: /usr/share/typesense/nodes)
+- `-peer-port=PORT` // *Port on which Typesense peering service listens (default: 8107)*
+- `-api-port=PORT` // *Port on which Typesense API service listens (default: 8108)*
 
 ### Full Example
 
 You can see a full example in [typesense.yaml](/typesense.yml)
 
-
-_All credit for initial implementation goes to [Elliot Wright](https://github.com/seeruk) - Forked from [github.com/seeruk/tsns](https://github.com/seeruk/tsns)_
+*All credit for initial implementation goes to [Elliot Wright](https://github.com/seeruk) - Forked from [github.com/seeruk/tsns](https://github.com/seeruk/tsns)*
