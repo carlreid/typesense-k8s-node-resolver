@@ -60,6 +60,22 @@ func main() {
         return
     }
 
+    var matchedEndpoints []string
+    for _, e := range endpoints.Items {
+        if e.Name == service {
+            matchedEndpoints = append(matchedEndpoints, e.String())
+        }
+    }
+
+    if len(matchedEndpoints) == 0 {
+        log.Printf("Initial run, no endpoints found for service: %s\n", service)
+        return
+    }
+
+    if verbose {
+        log.Printf("Initial run, found %d endpoints:\n%s\n", len(matchedEndpoints), strings.Join(matchedEndpoints, "\n"))
+    }
+
     nodes := getNodes(clients, namespace, service, peerPort, apiPort, verbose)
     if nodes == "" {
         log.Printf("failed to get nodes: %s\n", err)
@@ -75,10 +91,6 @@ func main() {
     watcher, err := clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
     if err != nil {
         log.Printf("failed to create endpoints watcher: %s\n", err)
-    }
-
-    if verbose {
-        log.Printf("Initial run, found %d endpoints: %v\n", len(endpoints.Items), endpoints)
     }
 
     for range watcher.ResultChan() {
