@@ -54,22 +54,35 @@ func main() {
         log.Printf("failed to create kubernetes client: %s\n", err)
     }
 
+    endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
+    if err != nil {
+        log.Printf("failed to list endpoints: %s\n", err)
+        return
+    }
+
+    nodes := getNodes(clients, namespace, service, peerPort, apiPort, verbose)
+    if nodes == "" {
+        log.Printf("failed to get nodes: %s\n", err)
+        return
+    }
+
+    err = os.WriteFile(nodesFile, []byte(nodes), 0666)
+    if err != nil {
+        log.Printf("failed to write nodes file: %s\n", err)
+        return
+    }
+
     watcher, err := clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
     if err != nil {
         log.Printf("failed to create endpoints watcher: %s\n", err)
     }
 
     if verbose {
-        endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
-        if err != nil {
-            log.Printf("failed to list endpoints: %s\n", err)
-        } else {
-            log.Printf("Initial run, found %d endpoints: %v\n", len(endpoints.Items), endpoints)
-        }
+        log.Printf("Initial run, found %d endpoints: %v\n", len(endpoints.Items), endpoints)
     }
 
     for range watcher.ResultChan() {
-        err := os.WriteFile(nodesFile, []byte(getNodes(clients, namespace, service, peerPort, apiPort, verbose)), 0666)
+        err = os.WriteFile(nodesFile, []byte(getNodes(clients, namespace, service, peerPort, apiPort, verbose)), 0666)
         if err != nil {
             log.Printf("failed to write nodes file: %s\n", err)
         }
