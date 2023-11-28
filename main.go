@@ -36,7 +36,7 @@ func main() {
     var config *rest.Config
     var err error
 
-    if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
+    if _, err = os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
         // No config file found, fall back to in-cluster config.
         config, err = rest.InClusterConfig()
         if err != nil {
@@ -127,6 +127,8 @@ func getNodes(clients *kubernetes.Clientset, namespace, service string, peerPort
                     // Typesense exporter sidecar for Prometheus runs on port 9000
                     if int(p.Port) == apiPort {
                         nodes = append(nodes, fmt.Sprintf("%s:%d:%d", a.IP, peerPort, p.Port))
+                    } else {
+                        log.Printf("Found port %d did not match apiPort %d", p.Port, apiPort)
                     }
                 }
             }
