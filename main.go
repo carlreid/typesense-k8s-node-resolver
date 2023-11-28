@@ -21,12 +21,14 @@ import (
 func main() {
     var namespace, service, nodesFile string
     var peerPort, apiPort int
+    var verbose bool
 
     flag.StringVar(&namespace, "namespace", "typesense", "The namespace that Typesense is installed within")
     flag.StringVar(&service, "service", "ts", "The name of the Typesense service to use the endpoints of")
     flag.StringVar(&nodesFile, "nodes-file", "/usr/share/typesense/nodes", "The location of the file to write node information to")
     flag.IntVar(&peerPort, "peer-port", 8107, "Port on which Typesense peering service listens")
     flag.IntVar(&apiPort, "api-port", 8108, "Port on which Typesense API service listens")
+    flag.BoolVar(&verbose, "verbose", false, "Enable verbose logging")
     flag.Parse()
 
     configPath := filepath.Join(homedir.HomeDir(), ".kube", "config")
@@ -57,15 +59,24 @@ func main() {
         log.Printf("failed to create endpoints watcher: %s\n", err)
     }
 
+    if verbose {
+        endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
+        if err != nil {
+            log.Printf("failed to list endpoints: %s\n", err)
+        } else {
+            log.Printf("Initial run, found %d endpoints: %v\n", len(endpoints.Items), endpoints)
+        }
+    }
+
     for range watcher.ResultChan() {
-        err := os.WriteFile(nodesFile, []byte(getNodes(clients, namespace, service, peerPort, apiPort)), 0666)
+        err := os.WriteFile(nodesFile, []byte(getNodes(clients, namespace, service, peerPort, apiPort, verbose)), 0666)
         if err != nil {
             log.Printf("failed to write nodes file: %s\n", err)
         }
     }
 }
 
-func getNodes(clients *kubernetes.Clientset, namespace, service string, peerPort int, apiPort int) string {
+func getNodes(clients *kubernetes.Clientset, namespace, service string, peerPort int, apiPort int, verbose bool) string {
     var nodes []string
 
     endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
@@ -93,8 +104,8 @@ func getNodes(clients *kubernetes.Clientset, namespace, service string, peerPort
 
     typesenseNodes := strings.Join(nodes, ",")
 
-    if len(nodes) != 0 {
-        log.Printf("New %d node configuration: %s\n", len(nodes), typesenseNodes)
+    if verbose && len(nodes) != 0 {
+        log.Printf("Watcher update, new %d node configuration: %s\n", len(nodes), typesenseNodes)
     }
 
     return typesenseNodes
