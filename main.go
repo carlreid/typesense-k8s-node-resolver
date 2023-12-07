@@ -120,9 +120,14 @@ func main() {
             return
         case res, ok := <-watcher.ResultChan():
             if !ok {
-                log.Fatalf("result channel closed, stopping watcher.")
-                close(doneCh) // Close the done channel to stop watcher loop.
-                return
+                watcher, err = clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
+                if err != nil {
+                    log.Fatalf("failed to create endpoints watcher: %s\n", err)
+                    close(doneCh)
+                    return
+                }
+                log.Print("watcher channel closed, but successfully reconnected. Continuing...")
+                continue
             }
     
             if res.Type == watch.Modified || res.Type == watch.Deleted || res.Type == watch.Added {
