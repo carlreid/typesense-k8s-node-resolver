@@ -7,6 +7,8 @@ import (
     "fmt"
     "log"
     "os"
+    "os/signal"
+    "syscall"
     "path/filepath"
     "strings"
 
@@ -14,6 +16,7 @@ import (
     "k8s.io/client-go/rest"
     "k8s.io/client-go/tools/clientcmd"
     "k8s.io/client-go/util/homedir"
+    "k8s.io/apimachinery/pkg/watch"
 
     metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -91,12 +94,49 @@ func main() {
     watcher, err := clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
     if err != nil {
         log.Printf("failed to create endpoints watcher: %s\n", err)
+        return
     }
+    
+    doneCh := make(chan struct{})
+    go func() {
+        // Wait for SIGTERM, SIGINT or SIGKILL
+        signals := make(chan os.Signal, 1)
+        signal.Notify(signals, os.Interrupt, syscall.SIGTERM, syscall.SIGKILL)
+    
+        // Block until we receive a signal or the done channel is closed.
+        select {
+        case sig := <-signals:
+            log.Printf("Received signal %v, stopping watcher.", sig)
+            close(doneCh)
+        case <-doneCh:
+            log.Print("Watcher stopped.")
+        }
+    }()    
 
-    for range watcher.ResultChan() {
-        err = os.WriteFile(nodesFile, []byte(getNodes(clients, namespace, service, peerPort, apiPort, verbose)), 0666)
-        if err != nil {
-            log.Printf("failed to write nodes file: %s\n", err)
+    for {
+        select {
+        case <-doneCh:
+            return
+        case res, ok := <-watcher.ResultChan():
+            if !ok {
+                log.Printf("result channel closed, stopping watcher.")
+                close(doneCh) // Close the done channel to stop watcher loop.
+                return
+            }
+    
+            if res.Type == watch.Modified || res.Type == watch.Deleted || res.Type == watch.Added {
+                nodes := getNodes(clients, namespace, service, peerPort, apiPort, verbose)
+                if nodes == "" {
+                    log.Print("nodes string is empty, skipping write to file.")
+                    continue
+                }
+    
+                err := os.WriteFile(nodesFile, []byte(nodes), 0666)
+                if err != nil {
+                    log.Printf("failed to write nodes file: %s\n", err)
+                    continue
+                }
+            }
         }
     }
 }
@@ -107,6 +147,11 @@ func getNodes(clients *kubernetes.Clientset, namespace, service string, peerPort
     endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
     if err != nil {
         log.Printf("failed to list endpoints: %s\n", err)
+        return ""
+    }
+
+    if len(endpoints.Items) == 0 {
+        log.Printf("No endpoints found for service: %s\n", service)
         return ""
     }
 
