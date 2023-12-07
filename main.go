@@ -43,23 +43,26 @@ func main() {
         // No config file found, fall back to in-cluster config.
         config, err = rest.InClusterConfig()
         if err != nil {
-            log.Printf("failed to build local config: %s\n", err)
+            log.Fatalf("failed to build local config: %s\n", err)
+            return
         }
     } else {
         config, err = clientcmd.BuildConfigFromFlags("", configPath)
         if err != nil {
-            log.Printf("failed to build in-cluster config: %s\n", err)
+            log.Fatalf("failed to build in-cluster config: %s\n", err)
+            return
         }
     }
 
     clients, err := kubernetes.NewForConfig(config)
     if err != nil {
-        log.Printf("failed to create kubernetes client: %s\n", err)
+        log.Fatalf("failed to create kubernetes client: %s\n", err)
+        return
     }
 
     endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
     if err != nil {
-        log.Printf("failed to list endpoints: %s\n", err)
+        log.Fatalf("failed to list endpoints: %s\n", err)
         return
     }
 
@@ -72,7 +75,6 @@ func main() {
 
     if len(matchedEndpoints) == 0 {
         log.Printf("Initial run, no endpoints found for service: %s\n", service)
-        return
     }
 
     if verbose {
@@ -81,19 +83,18 @@ func main() {
 
     nodes := getNodes(clients, namespace, service, peerPort, apiPort, verbose)
     if nodes == "" {
-        log.Printf("failed to get nodes: %s\n", err)
-        return
+        log.Printf("No nodes found on initial run")
     }
 
     err = os.WriteFile(nodesFile, []byte(nodes), 0666)
     if err != nil {
-        log.Printf("failed to write nodes file: %s\n", err)
+        log.Fatalf("failed to write nodes file: %s\n", err)
         return
     }
 
     watcher, err := clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
     if err != nil {
-        log.Printf("failed to create endpoints watcher: %s\n", err)
+        log.Fatalf("failed to create endpoints watcher: %s\n", err)
         return
     }
     
@@ -119,7 +120,7 @@ func main() {
             return
         case res, ok := <-watcher.ResultChan():
             if !ok {
-                log.Printf("result channel closed, stopping watcher.")
+                log.Fatalf("result channel closed, stopping watcher.")
                 close(doneCh) // Close the done channel to stop watcher loop.
                 return
             }
