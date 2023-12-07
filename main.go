@@ -43,26 +43,26 @@ func main() {
         // No config file found, fall back to in-cluster config.
         config, err = rest.InClusterConfig()
         if err != nil {
-            log.Fatalf("failed to build local config: %s\n", err)
+            log.Fatalf("Failed to build local config: %s\n", err)
             return
         }
     } else {
         config, err = clientcmd.BuildConfigFromFlags("", configPath)
         if err != nil {
-            log.Fatalf("failed to build in-cluster config: %s\n", err)
+            log.Fatalf("Failed to build in-cluster config: %s\n", err)
             return
         }
     }
 
     clients, err := kubernetes.NewForConfig(config)
     if err != nil {
-        log.Fatalf("failed to create kubernetes client: %s\n", err)
+        log.Fatalf("Failed to create kubernetes client: %s\n", err)
         return
     }
 
     endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
     if err != nil {
-        log.Fatalf("failed to list endpoints: %s\n", err)
+        log.Fatalf("Failed to list endpoints: %s\n", err)
         return
     }
 
@@ -88,13 +88,13 @@ func main() {
 
     err = os.WriteFile(nodesFile, []byte(nodes), 0666)
     if err != nil {
-        log.Fatalf("failed to write nodes file: %s\n", err)
+        log.Fatalf("Failed to write nodes file: %s\n", err)
         return
     }
 
     watcher, err := clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
     if err != nil {
-        log.Fatalf("failed to create endpoints watcher: %s\n", err)
+        log.Fatalf("Failed to create endpoints watcher: %s\n", err)
         return
     }
     
@@ -122,24 +122,24 @@ func main() {
             if !ok {
                 watcher, err = clients.CoreV1().Endpoints(namespace).Watch(context.Background(), metav1.ListOptions{})
                 if err != nil {
-                    log.Fatalf("failed to create endpoints watcher: %s\n", err)
+                    log.Fatalf("Failed to create endpoints watcher: %s\n", err)
                     close(doneCh)
                     return
                 }
-                log.Print("watcher channel closed, but successfully reconnected. Continuing...")
+                log.Print("Watcher channel closed, but successfully reconnected. Continuing...")
                 continue
             }
     
             if res.Type == watch.Modified || res.Type == watch.Deleted || res.Type == watch.Added {
                 nodes := getNodes(clients, namespace, service, peerPort, apiPort, verbose)
                 if nodes == "" {
-                    log.Print("nodes string is empty, skipping write to file.")
+                    log.Print("Nodes string is empty, skipping write to file.")
                     continue
                 }
     
                 err := os.WriteFile(nodesFile, []byte(nodes), 0666)
                 if err != nil {
-                    log.Printf("failed to write nodes file: %s\n", err)
+                    log.Printf("Failed to write nodes file: %s\n", err)
                     continue
                 }
             }
@@ -152,7 +152,7 @@ func getNodes(clients *kubernetes.Clientset, namespace, service string, peerPort
 
     endpoints, err := clients.CoreV1().Endpoints(namespace).List(context.Background(), metav1.ListOptions{})
     if err != nil {
-        log.Printf("failed to list endpoints: %s\n", err)
+        log.Printf("Failed to list endpoints: %s\n", err)
         return ""
     }
 
